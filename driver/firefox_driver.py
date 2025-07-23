@@ -9,6 +9,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 from selenium.common.exceptions import WebDriverException
 import json
 class FirefoxController:
+    isClose=True
     def __init__(self):
         self.system = platform.system().lower()
         self.driver_path = None
@@ -288,11 +289,12 @@ class FirefoxController:
     def start_browser(self, headless=True):
         """启动浏览器"""
         try:
-            if hasattr(self, 'driver'):
-                return self.driver
             self._install_firefox()
             self._setup_driver()
-            
+            self.options.page_load_strategy = "eager"
+            if headless:
+                self.options.add_argument("--headless") 
+                pass  
             if headless and  self.system != "windows":
                 self.options.add_argument("--headless")          # 启用无界面模式
                 self.options.add_argument("--disable-gpu")       # 禁用 GPU 加速
@@ -316,15 +318,20 @@ class FirefoxController:
         self.Close()
     def open_url(self, url):
         """打开指定URL"""
-        if not hasattr(self, 'driver'):
-            raise Exception("浏览器未启动，请先调用start_browser()")
-        self.driver.get(url)
+        try:
+            self.driver.get(url)
+        except WebDriverException as e:
+            print(f"打开URL失败: {str(e)}")
+            print(e)
+        except Exception as e:
+            print(f"打开URL失败: {str(e)}")
 
     def Close(self):
         """关闭浏览器"""
         self.HasLogin= False
         if hasattr(self, 'driver'):
             self.driver.quit()
+            self.isClose=True
 
     def dict_to_json(self, data_dict):
         """

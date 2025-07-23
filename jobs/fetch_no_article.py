@@ -1,4 +1,4 @@
-from core.models.article import Article
+from core.models.article import Article,DATA_STATUS
 from core.db import DB
 from core.wx.base import WxGather
 from time import sleep
@@ -16,7 +16,7 @@ def fetch_articles_without_content():
         articles = session.query(Article).filter(Article.content == None).limit(10).all()
         
         if not articles:
-            print("没有找到content为空的文章")
+            print_warning("暂无需要获取内容的文章")
             return
         
         for article in articles:
@@ -30,13 +30,16 @@ def fetch_articles_without_content():
             
             # 获取内容
             if cfg.get("gather.content_mode","web"):
-                content=Web.get_article_content(url)
+                content=Web.get_article_content(url).get("content")
             else:
                 content = ga.content_extract(url)
             sleep(random.randint(3,10))
             if content:
                 # 更新内容
                 article.content = content
+                if "该内容已被发布者删除" in content:
+                    print_error(f"获取文章 {article.title} 内容已被发布者删除")
+                    article.status = DATA_STATUS.DELETED
                 session.commit()
                 print_success(f"成功更新文章 {article.title} 的内容")
             else:
@@ -44,6 +47,8 @@ def fetch_articles_without_content():
                 
     except Exception as e:
         print(f"处理过程中发生错误: {e}")
+    finally:
+        Web.Close()
 from core.task import TaskScheduler
 scheduler=TaskScheduler()
 from core.config import cfg

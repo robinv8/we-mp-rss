@@ -141,10 +141,12 @@ class Wx:
             wait = WebDriverWait(controller.driver, self.wait_time)
             wait.until(EC.visibility_of(qrcode))
             qrcode.click()
-            time.sleep(5)
+            time.sleep(2)
             self.Call_Success()
         except Exception as e:
             print_error(f"未登录{str(e)}")
+        finally:
+            self.Close()
     def isLock(self):             
         if self.isLock:
             if os.path.exists(self.wx_login_url):
