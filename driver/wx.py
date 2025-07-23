@@ -35,6 +35,15 @@ class Wx:
         self.release_lock()
         pass
 
+    def __del__(self):
+        """析构函数，确保资源彻底清理"""
+        try:
+            self.Close()
+            self.Clean()
+            self.release_lock()
+        except:
+            pass
+
     def check_dependencies(self):
         """检查必要的依赖包"""
         try:
@@ -250,6 +259,9 @@ class Wx:
                 self.Close()
             else:
                 pass
+            # 强制垃圾回收
+            import gc
+            gc.collect()
         return self.SESSION
     def format_token(self,cookies:any,token=""):
         cookies_str=""
@@ -292,13 +304,16 @@ class Wx:
         return self.SESSION 
     
     def Close(self):
-        rel=False
+        """关闭浏览器并清理资源"""
+        rel = False
         try:
-                self.controller.close()
-                rel=True
-        except:
-            # print("浏览器未启动")
-            pass
+            if hasattr(self, 'controller') and self.controller:
+                self.controller.Close()
+                # 清空controller引用
+                self.controller = None
+                rel = True
+        except Exception as e:
+            print_error(f"关闭浏览器时发生错误: {str(e)}")
         return rel
     def Clean(self):
         try:

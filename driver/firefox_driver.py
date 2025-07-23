@@ -2,6 +2,8 @@ import os
 import platform
 import subprocess
 import sys
+import signal
+import psutil
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
@@ -327,11 +329,55 @@ class FirefoxController:
             print(f"打开URL失败: {str(e)}")
 
     def Close(self):
-        """关闭浏览器"""
-        self.HasLogin= False
-        if hasattr(self, 'driver'):
-            self.driver.quit()
-            self.isClose=True
+        """关闭浏览器并清理资源"""
+        self.HasLogin = False
+        try:
+            if hasattr(self, 'driver') and self.driver:
+                # 先关闭所有窗口
+                try:
+                    self.driver.close()
+                except:
+                    pass
+                # 然后退出驱动
+                self.driver.quit()
+                # 清空引用
+                self.driver = None
+        except Exception as e:
+            print(f"关闭浏览器时发生错误: {str(e)}")
+        finally:
+            self.isClose = True
+            # 强制清理Firefox进程
+            self._cleanup_firefox_processes()
+
+    def _cleanup_firefox_processes(self):
+        """清理残留的Firefox和Geckodriver进程"""
+        try:
+            # 清理Firefox进程
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    proc_name = proc.info['name'].lower()
+                    if 'firefox' in proc_name or 'geckodriver' in proc_name:
+                        # 检查是否是当前用户的进程
+                        try:
+                            current_user = os.getlogin()
+                        except OSError:
+                            # 在某些环境下可能无法获取用户名，使用os.getuid()代替
+                            current_user = str(os.getuid())
+                        if proc.username() == current_user:
+                            print(f"正在清理进程: {proc.info['name']} (PID: {proc.info['pid']})")
+                            proc.terminate()
+                            # 等待进程正常退出
+                            try:
+                                proc.wait(timeout=3)
+                            except psutil.TimeoutExpired:
+                                # 强制终止
+                                proc.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+                except Exception as e:
+                    print(f"清理进程时出错: {str(e)}")
+        except Exception as e:
+            print(f"进程清理失败: {str(e)}")
 
     def dict_to_json(self, data_dict):
         """
